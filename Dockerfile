@@ -1,14 +1,13 @@
-ARG ALPINE_VERSION
-
-FROM alpine:${ALPINE_VERSION} as base-image
+FROM debian:bullseye-slim as base-image
 
 FROM base-image as bitlbee-build
 
 ARG BITLBEE_VERSION
 
-RUN apk add --no-cache --update \
-    bash shadow build-base git python2 autoconf automake libtool mercurial intltool flex \
-    glib-dev openssl-dev pidgin-dev json-glib-dev libgcrypt-dev zlib-dev libotr-dev \
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+    build-essential git python autoconf automake libtool intltool flex libglib2.0-dev \
+    libssl-dev libpurple-dev libjson-glib-dev libgcrypt20-dev libotr5-dev cmake \
  && cd /tmp \
  && git clone -n https://github.com/bitlbee/bitlbee.git \
  && cd bitlbee \
@@ -111,7 +110,8 @@ ARG TELEGRAM_VERSION
 RUN echo TELEGRAM=${TELEGRAM} > /tmp/status \
  && if [ ${TELEGRAM} -eq 1 ]; \
      then cd /tmp \
-       && apk add --update --no-cache cmake gperf libwebp-dev libpng-dev \
+       && apt-get update \
+       && apt-get install -y --no-install-recommends cmake gperf libwebp-dev libpng-dev \
        && git clone -n https://github.com/ars3niy/tdlib-purple.git \
        && cd tdlib-purple \
        && git checkout ${TELEGRAM_VERSION} \
@@ -130,7 +130,7 @@ RUN echo TELEGRAM=${TELEGRAM} > /tmp/status \
        && mkdir build \
        && cd build \
        && cmake -DTd_DIR=/usr/local/lib/cmake/Td -DNoLottie=True -DNoVoip=True .. \
-       && make -j$(nproc --ignore 2) \
+       && make -j$(nproc --ignore 2)\
        && make install \
        && strip /usr/lib/purple-2/libtelegram-tdlib.so; \
      else mkdir -p /usr/lib/purple-2 \
@@ -149,7 +149,8 @@ ARG HANGOUTS_VERSION
 RUN echo HANGOUTS=${HANGOUTS} > /tmp/status \
  && if [ ${HANGOUTS} -eq 1 ]; \
      then cd /tmp \
-       && apk add --update --no-cache protobuf-c-dev \
+       && apt-get update \
+       && apt-get install -y --no-install-recommends libprotobuf-c-dev protobuf-c-compiler \
        && git clone -n https://github.com/EionRobb/purple-hangouts.git \
        && cd purple-hangouts \
        && git checkout ${HANGOUTS_VERSION} \
@@ -193,7 +194,8 @@ ARG SIPE_VERSION
 RUN echo SIPE=${SIPE} > /tmp/status \
  && if [ ${SIPE} -eq 1 ]; \
      then cd /tmp \
-       && apk add --update --no-cache libxml2-dev \
+       && apt-get update \
+       && apt-get install -y --no-install-recommends libxml2-dev autopoint \
        && git clone -n https://repo.or.cz/siplcs.git \
        && cd siplcs \
        && git checkout ${SIPE_VERSION} \
@@ -242,7 +244,8 @@ ARG ROCKETCHAT_VERSION
 RUN echo ROCKETCHAT=${ROCKETCHAT} > /tmp/status \
  && if [ ${ROCKETCHAT} -eq 1 ]; \
      then cd /tmp \
-       && apk add --update --no-cache discount-dev \
+       && apt-get update \
+       && apt-get install -y --no-install-recommends libmarkdown2-dev \
        && git clone -n https://github.com/EionRobb/purple-rocketchat.git \
        && cd purple-rocketchat \
        && git checkout ${ROCKETCHAT_VERSION} \
@@ -291,7 +294,8 @@ COPY matrix-e2e.c.patch /tmp/matrix-e2e.c.patch
 RUN echo MATRIX=${MATRIX} > /tmp/status \
  && if [ ${MATRIX} -eq 1 ]; \
      then cd /tmp \
-       && apk add --update --no-cache sqlite-dev http-parser-dev olm-dev \
+       && apt-get update \
+       && apt-get install -y --no-install-recommends libsqlite3-dev libhttp-parser-dev libolm-dev patch \
        && git clone -n https://github.com/matrix-org/purple-matrix \
        && cd purple-matrix \
        && git checkout ${MATRIX_VERSION} \
@@ -313,16 +317,15 @@ ARG SIGNAL_VERSION
 RUN echo SIGNAL=${SIGNAL} > /tmp/status \
  && if [ ${SIGNAL} -eq 1 ]; \
      then cd /tmp \
-       && apk --no-cache add file-dev cmake \
-       && git clone -n https://github.com/hoehermann/purple-signald \
-       && cd purple-signald \
+       && apt-get update \
+       && apt-get install -y --no-install-recommends libmagic-dev \
+       && git clone -n https://github.com/hoehermann/libpurple-signald \
+       && cd libpurple-signald \
        && git checkout ${SIGNAL_VERSION} \
        && git submodule init \
        && git submodule update \
-       && mkdir -p build \
-       && cd build \
-       && cmake .. \
-       && make -j$(nproc --ignore 2) \
+       && cmake . \
+       && make -j$(nproc --ignore 2) SUPPORT_EXTERNAL_ATTACHMENTS=1 \
        && make install \
        && strip /usr/lib/purple-2/libsignald.so; \
      else mkdir -p /usr/lib/purple-2 \
@@ -347,6 +350,33 @@ RUN echo ICYQUE=${ICYQUE} > /tmp/status \
        && strip /usr/lib/purple-2/libicyque.so; \
      else mkdir -p /usr/lib/purple-2 \
        && ln -sf /nowhere /usr/lib/purple-2/libicyque.so; \
+    fi
+
+# ---
+
+FROM bitlbee-build as whatsapp-build
+
+ARG WHATSAPP=1
+ARG WHATSAPP_VERSION
+
+RUN echo WHATSAPP=${WHATSAPP} > /tmp/status \
+ && if [ ${WHATSAPP} -eq 1 ]; \
+     then cd /tmp \
+       && echo "deb http://deb.debian.org/debian bullseye-backports main" | tee -a /etc/apt/sources.list \
+       && apt-get update \
+       && apt-get install -y --no-install-recommends -t bullseye-backports golang-go \
+       && apt-get install -y --no-install-recommends cmake pkg-config \
+       && git clone -n https://github.com/hoehermann/purple-gowhatsapp.git \
+       && cd purple-gowhatsapp \
+       && git checkout ${WHATSAPP_VERSION} \
+       && mkdir build \
+       && cd build \
+       && cmake .. \
+       && make -j$(nproc --ignore 2) \
+       && make install/strip \
+       && strip /usr/lib/purple-2/libwhatsmeow.so; \
+     else mkdir -p /usr/lib/purple-2 \
+       && ln -sf /nowhere /usr/lib/purple-2/libwhatsmeow.so; \
     fi
 
 # ---
@@ -412,7 +442,11 @@ COPY --from=signald-build /tmp/status /tmp/plugin/signald
 COPY --from=icyque-build /usr/lib/purple-2/libicyque.so /tmp/usr/lib/purple-2/libicyque.so
 COPY --from=icyque-build /tmp/status /tmp/plugin/icyque
 
-RUN apk add --update --no-cache findutils \
+COPY --from=whatsapp-build /usr/lib/purple-2/libwhatsmeow.so /tmp/usr/lib/purple-2/libwhatsmeow.so
+COPY --from=whatsapp-build /tmp/status /tmp/plugin/whatsapp
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends findutils \
  && find /tmp/ -type f -empty -delete \
  && find /tmp/ -type d -empty -delete \
  && cat /tmp/plugin/* > /tmp/plugins \
@@ -424,25 +458,28 @@ FROM base-image as bitlbee-libpurple
 
 COPY --from=bitlbee-plugins /tmp/ /
 
-ARG PKGS="tzdata bash glib libssl1.1 libpurple \
-          libpurple-xmpp libpurple-bonjour"
+ARG PKGS="tzdata libglib2.0-0 libssl1.1 libpurple0 libtcl8.6 libtk8.6"
 
-RUN addgroup -g 101 -S bitlbee \
- && adduser -u 101 -D -S -G bitlbee bitlbee \
+SHELL [ "/bin/bash", "-c" ]
+
+RUN groupadd -g 101 -r bitlbee \
+ && useradd -u 101 -r -g bitlbee -m -d /var/lib/bitlbee bitlbee \
  && install -d -m 750 -o bitlbee -g bitlbee /var/lib/bitlbee \
  && source /plugins \
- && if [ ${OTR} -eq 1 ]; then PKGS="${PKGS} libotr"; fi \
+ && if [ ${OTR} -eq 1 ]; then PKGS="${PKGS} libotr5"; fi \
  && if [ ${FACEBOOK} -eq 1 ] || [ ${SKYPEWEB} -eq 1 ] || [ ${HANGOUTS} -eq 1 ] \
  || [ ${ROCKETCHAT} -eq 1 ] || [ ${MATRIX} -eq 1 ] || [ ${SIGNAL} -eq 1 ] \
- || [ ${ICYQUE} -eq 1 ]; then PKGS="${PKGS} json-glib"; fi \
- && if [ ${STEAM} -eq 1 ] || [ ${TELEGRAM} -eq 1 ] || [ ${MATRIX} -eq 1 ]; then PKGS="${PKGS} libgcrypt"; fi \
- && if [ ${TELEGRAM} -eq 1 ]; then PKGS="${PKGS} zlib libwebp libpng libstdc++ libgcc"; fi \
- && if [ ${HANGOUTS} -eq 1 ] || [ ${SIGNAL} -eq 1 ]; then PKGS="${PKGS} protobuf-c"; fi \
- && if [ ${SIGNAL} -eq 1 ]; then PKGS="${PKGS} gdk-pixbuf"; fi \
+ || [ ${ICYQUE} -eq 1 ]; then PKGS="${PKGS} libjson-glib-1.0-0"; fi \
+ && if [ ${STEAM} -eq 1 ] || [ ${TELEGRAM} -eq 1 ] || [ ${MATRIX} -eq 1 ]; then PKGS="${PKGS} libgcrypt20"; fi \
+ && if [ ${TELEGRAM} -eq 1 ]; then PKGS="${PKGS} zlib1g libwebp6 libpng16-16 libstdc++6"; fi \
+ && if [ ${HANGOUTS} -eq 1 ] || [ ${SIGNAL} -eq 1 ]; then PKGS="${PKGS} libprotobuf-c1"; fi \
+ && if [ ${SIGNAL} -eq 1 ]; then PKGS="${PKGS} libmagic1"; fi \
  && if [ ${SIPE} -eq 1 ]; then PKGS="${PKGS} libxml2"; fi \
- && if [ ${ROCKETCHAT} -eq 1 ]; then PKGS="${PKGS} discount"; fi \
- && if [ ${MATRIX} -eq 1 ]; then PKGS="${PKGS} sqlite http-parser olm"; fi \
- && apk add --no-cache --update ${PKGS} \
+ && if [ ${ROCKETCHAT} -eq 1 ]; then PKGS="${PKGS} libmarkdown2"; fi \
+ && if [ ${MATRIX} -eq 1 ]; then PKGS="${PKGS} libsqlite3-0 libhttp-parser2.9 libolm2"; fi \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends ${PKGS} \
+ && apt-get clean \
  && rm /plugins
 
 EXPOSE 6667
