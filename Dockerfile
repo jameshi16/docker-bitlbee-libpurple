@@ -458,7 +458,7 @@ FROM base-image as bitlbee-libpurple
 
 COPY --from=bitlbee-plugins /tmp/ /
 
-ARG PKGS="tzdata libglib2.0-0 libssl1.1 libpurple0 libtcl8.6 libtk8.6"
+ARG PKGS="tzdata libglib2.0-0 libssl1.1 libpurple0 libtcl8.6 libtk8.6 ca-certificates"
 
 SHELL [ "/bin/bash", "-c" ]
 
