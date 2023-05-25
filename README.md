@@ -2,8 +2,9 @@
 
 This is a fork to make building the docker image easier for my purposes.
 
-- Updated `purple-gowhatsapp` to latest version, otherwise you won't be able to link new devices
-- Made it so that one can run `docker build git@github.com:jameshi16/docker-bitlbee-libpurple.git -t docker-bitlbee:latest`
+- Made it so that one can run `docker build git@github.com:jameshi16/docker-bitlbee-libpurple.git -t docker-bitlbee:latest --build-args BITLBEE_VERSION=3.6`
+
+Note: `BITLBEE_VERSION` is not set, so most builds will fail. Please set it with `--build-args`, and match it to whatever latest version BITLBEE is.
 
 # docker-bitlbee-libpurple
 
